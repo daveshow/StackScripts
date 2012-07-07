@@ -73,3 +73,58 @@ sed -i 's/# EXITON="error"/EXITON=""/' /etc/cron-apt/config
 sed -i 's/# SYSLOGON="upgrade"/SYSLOGON=""/' /etc/cron-apt/config
 sed -i 's/# MAILON="error"/MAILON=""/' /etc/cron-apt/config
 }
+function config_screen {
+#
+cat <<EOT >/root/.screenrc
+  altscreen         on  # default: off  enable "alternate screen" support
+  autodetach        on  # default: on   automatically detach on hangup
+  crlf              off # default: off  no crlf for end-of-lines
+  deflogin          off # default: on   default setting for login
+  defsilence        off # default: off  default setting for silence
+  hardcopy_append   on  # default: off  append hardcopies to hardcopy files
+  ignorecase        on  # default: off  ignore case in searches
+  startup_message   off # default: on   NO startup_message - thankyou!
+  vbell             off # default: ???  be silent on bells
+  termcapinfo xterm     ti@:te@
+  termcapinfo linux "ve=\E[?25h\E[?17;0;64c"
+  termcapinfo rxvt-cygwin-native ti@:te@
+  defscrollback         1000  # default: 100
+  nonblock              23    # default: ???  unblock display after N secs of refusing output
+  silencewait           15    # default: 30
+  hardcopydir   $HOME/.screen
+  shell         bash
+  #caption always "%?%-Lw%?%n*%f %t%?(%u)%?%?%+Lw%?"
+  caption always "%{ck}%?%-Lw%?%{Yk}%n*%f %t%?(%u)%?%{ck}%?%+Lw%?"
+  #caption always "%{kG}%?%-Lw%?%{bw}%n*%f %t%?(%u)%?%{kG}%?%+Lw%?"
+  #caption always '%{= wb}%50=%n%f %t%{= wb}'
+  #hardstatus alwayslastline "%Y-%m-%d %c %H %l"
+  #hardstatus alwayslastline "%{= Gb}%Y-%m-%d %c %{= RY}%H %{= BW}%l"
+  hardstatus alwayslastline "%{kr}%l %{kg}%c %{ky}%M%d"
+  #hardstatus alwayslastline "%{Gb}%Y-%m-%d %c %{= RY}%H %{BW}%l%{Gb} %="
+  #hardstatus alwayslastline "%{rw}%H%{wk}|%c|%M%d|%?%-Lw%?%{bw}%n*%f %t%?(%u)%?%{wk}%?%+Lw%?"
+  sorendition    kG # black  on bold green
+  activity              "%C -> %n%f %t activity!"
+  bell_msg         "Bell in window %n"
+  pow_detach_msg   "BYE"
+  vbell_msg        " *beep* "
+  bind .
+  bind ^\
+  bind \\
+  bind j focus down
+  bind k focus up
+  bind o only
+           time "%H %Y-%m-%d %c:%s"
+  bind t   time
+  bind + resize +1
+  bind - resize -1
+  bind " " select 0
+  bind R colon "source $HOME/.screenrc"
+  markkeys "$=^E"
+  markkeys "@=d=f=i=N"
+  bind @ windowlist -m
+  windowlist title  "Num Title"
+  windowlist string "%3n %t"
+  windowlist title  "Flag Num Title"
+  windowlist string "%f%04= %3n %t"
+EOT
+}
