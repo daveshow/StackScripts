@@ -3,19 +3,6 @@
 --user_sshkey
 --sshd_permitrootlogin      No
 --sshd_passwordauth         Yes
---sys_hostname              myvps
---base_data_directory       /srv
---setup_postgresql          Yes
---postgresql_database       django
---postgresql_user           django
---postgresql_password       django
---setup_mysql               No
---mysql_database_password
---mysql_database
---mysql_user
---mysql_password
+--sys_hostname              myps
 --setup_mongodb             Yes
---setup_django_project      Yes
---django_domain
---django_project_name       my_project
---django_user               django
+--notify_email		ubuntu@example.com
