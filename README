@@ -1,9 +1,13 @@
-A Linode.com StackScript shell script that configures a complete web environment with Apache, PostgreSQL/MySQL/MongoDB, Python, mod_wsgi, virtualenv and Django.
-
-Optionally creates a PostgreSQL/MySQL user and database and installs MongoDB NoSQL database.
-
-By default, it creates a VirtualHost using the reverse DNS of your Linode's primary IP and sets up a sample Django project in the /srv directory.
-
-Installs common system and dev utilities, sets up postfix loopback, Uncomplicated Firewall and Fail2Ban.
-
-Writes command output to /root/stackscript.log and records /etc changes using Mercurial. When completed notifies via email.
+# A Linode.com StackScript shell script that configures a complete web environment with Apache/Lighttpd, MongoDB, Python, virtualenv.
+#
+# 2012 - David Peters - dave@daveshow.com
+# Creative Commons Attribution-NonCommercial-ShareAlike 3.0 United States (CC BY-NC-SA 3.0) 
+#
+# Link: https://github.com/daveshow/StackScripts
+#Optionally creates a installs MongoDB NoSQL database.
+#By default, it creates a VirtualHost using the reverse DNS.
+#Installs common system and dev utilities, sets up postfix loopback, Uncomplicated Firewall and Fail2Ban.
+#Writes command output to /root/stackscript.log and records /etc changes using Mercurial. When completed notifies via email.
+#
+#
+#This is a pull request from ( https://github.com/nigma/StackScripts ) just adding in some aditions.

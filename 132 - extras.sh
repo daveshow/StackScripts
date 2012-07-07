@@ -1,5 +1,13 @@
 ﻿#!/bin/bash
 #
+# Installing and configuring the nessary servers for the include stack scripts
+#
+# 2012 - David Peters - dave@daveshow.com
+# Creative Commons Attribution-NonCommercial-ShareAlike 3.0 United States (CC BY-NC-SA 3.0) 
+#
+# Link: https://github.com/daveshow/StackScripts
+#
+#
 function install_ssh {
 aptitude -y install openssh-server
 }
@@ -83,7 +91,7 @@ function configure_chkrootkit {
   test -f $CONF || exit 0
 
   set_conf_value $CONF "RUN_DAILY" "\"true\""
-  set_conf_value $CONF "RUN_DAILY_OPTS" "\"-q -e '/usr/lib/jvm/.java-1.6.0-openjdk.jinfo /usr/lib/byobu/.constants /usr/lib/byobu/.dirs /usr/lib/byobu/.shutil /usr/lib/byobu/.notify_osd /usr/lib/byobu/.common /usr/lib/pymodules/python2.7/.path'\""
+  set_conf_value $CONF "RUN_DAILY_OPTS" "-q -e '\/usr\/lib\/jvm\/.java-1.6.0-openjdk.jinfo \/usr\/lib\/byobu\/.constants \/usr\/lib\/byobu\/.dirs \/usr\/lib\/byobu\/.shutil \/usr\/lib\/byobu\/.notify_osd \/usr\/lib\/byobu\/.common \/usr\/lib\/pymodules\/python2.7\/.path'"
 }
 
 function configure_rkhunter {
@@ -95,6 +103,9 @@ function configure_rkhunter {
   sed -i "/ALLOWHIDDENDIR=\/dev\/.udev$/ s/^#//" $CONF
   # Disabling tests for kernel modules, Linode kernel doens't have any modules loaded
   sed -i "/^DISABLE_TESTS=.*/ s/\"$/ os_specific\"/" $CONF
+}
+function copy_logwatch {
+cp /usr/share/logwatch/default.conf/logwatch.conf /etc/logwatch/conf/logwatch.conf
 }
 function configure_logwatch {
   CONF=/etc/logwatch/conf/logwatch.conf

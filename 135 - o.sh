@@ -1,5 +1,13 @@
 ﻿#!/bin/bash
 #
+# Installing and configuring the nessary servers for the include stack scripts
+#
+# 2012 - David Peters - dave@daveshow.com
+# Creative Commons Attribution-NonCommercial-ShareAlike 3.0 United States (CC BY-NC-SA 3.0) 
+#
+# Link: https://github.com/daveshow/StackScripts
+#
+#
 # <UDF name="notify_email" Label="Send email notification to" example="Email address to send notification and system alerts." />
 # <UDF name="user_name" label="Unprivileged user account name" example="This is the account that you will be using to log in." />
 # <UDF name="user_password" label="Unprivileged user password" />
@@ -106,6 +114,7 @@ configure_chkrootkit
 system_record_etc_dir_changes "Configured chkrootkit"
 configure_rkhunter
 system_record_etc_dir_changes "Configured rkhunter"
+copy_logwatch
 configure_logwatch
 system_record_etc_dir_changes "Configured logwatch"
 #
@@ -178,12 +187,12 @@ Your Server configuration is completed.
 EOD
 if [ "$SETUP_MONIT" == "Yes" ]; then
     cat >> ~/setup_message <<EOD
-Monit web interface is at http://${RDNS}:2812/ (use your system username/password).
+Monit web interface is at http://$SYS_HOSTNAME:2812/ (use your system username/password).
 
 EOD
 fi
 cat >> ~/setup_message <<EOD
-To access your server ssh to $USER_NAME@$RDNS
+To access your server ssh to $USER_NAME@$SYS_HOSTNAME
 EOD
 
 mail -s "Your Server is ready" "$NOTIFY_EMAIL" < ~/setup_message
