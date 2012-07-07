@@ -231,3 +231,14 @@ cat <<EOT >/etc/monit/conf.d/apache2.cfg
     group www
 EOT
 }
+function monit_def_lighttpd {
+cat <<EOT >/etc/monit/conf.d/lighttpd.conf
+check process lighttpd with pidfile /var/run/lighttpd.pid
+	group www
+	start program = "/etc/init.d/lighttpd start"
+	stop program = "/etc/init.d/lighttpd stop"
+	if failed host localhost port 80
+	protocol http then restart
+	if 5 restarts within 5 cycles then timeout
+EOT
+}

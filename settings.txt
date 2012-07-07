@@ -5,4 +5,7 @@
 --sshd_passwordauth         Yes
 --sys_hostname              myps
 --setup_mongodb             Yes
+--setup_apache             No
+--setup_lighttpd             Yes
+--sshd_group		sshgroup
 --notify_email		ubuntu@example.com
