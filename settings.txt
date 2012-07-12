@@ -6,6 +6,11 @@
 --sys_hostname              myps
 --setup_mongodb             Yes
 --setup_apache             No
---setup_lighttpd             Yes
+--setup_lighttpd             No
 --sshd_group		sshgroup
 --notify_email		ubuntu@example.com
+--setup_mysql No
+--mysql_database_password
+--mysql_database
+--mysql_user
+--mysql_password

@@ -47,25 +47,32 @@ EOT
 }
 
 function monit_def_rootfs {
-cat <<EOT >/etc/monit/conf.d/rootfs.cfg
-  check filesystem rootfs with path /
+for path in $(grep -v "^#\|none\|proc\|boot" /etc/fstab| awk '{print $2}');do
+    if [ "$path" == "/" ]; then
+	file_system=rootfs
+    else
+	file_system=$(echo "$path" | sed 's/\///')fs
+	fi
+cat <<EOT >/etc/monit/conf.d/$file_system.cfg
+  check filesystem $file_system with path $path
     if space usage > 80% for 5 times within 15 cycles then alert
     if inode usage > 85% then alert
     group system
 EOT
+done
 }
 
 function monit_def_cron {
 cat <<EOT >/etc/monit/conf.d/cron.cfg
   check process cron with pidfile /var/run/crond.pid
-    start program = "/sbin/start cron"
-    stop  program = "/sbin/stop cron"
+    start program = "/usr/bin/service cron start"
+    stop  program = "/usr/bin/service cron stop"
     if 5 restarts within 5 cycles then timeout
     depends on cron_rc
     group system
 
   check file cron_rc with path /etc/init.d/cron
-    if failed checksum then unmonitor
+    if failed sha1 checksum then unmonitor
     if failed permission 755 then unmonitor
     if failed uid root then unmonitor
     if failed gid root then unmonitor
@@ -76,10 +83,17 @@ EOT
 function monit_def_sshd {
 cat <<EOT >/etc/monit/conf.d/sshd.cfg
   check process sshd with pidfile /var/run/sshd.pid
-    start program "/etc/init.d/ssh start"
-    stop program "/etc/init.d/ssh stop"
-    # if failed port 22 protocol ssh then restart
-    # if 3 restarts within 3 cycles then timeout
+    start program "/usr/bin/service ssh start"
+    stop program "/usr/bin/service ssh stop"
+	depends on ssh_rc
+	group secure
+  
+  check file ssh_rc with path /etc/init.d/ssh
+    if failed sha1 checksum then unmonitor
+    if failed permission 755 then unmonitor
+    if failed uid root then unmonitor
+    if failed gid root then unmonitor
+    group secure	
 EOT
 }
 
@@ -94,8 +108,8 @@ EOT
 function monit_def_postfix {
 cat <<EOT >/etc/monit/conf.d/postfix.cfg
   check process postfix with pidfile /var/spool/postfix/pid/master.pid
-    start program = "/etc/init.d/postfix start"
-    stop  program = "/etc/init.d/postfix stop"
+    start program = "/usr/bin/service postfix start"
+    stop  program = "/usr/bin/service postfix stop"
     if cpu > 60% for 2 cycles then alert
     if cpu > 80% for 5 cycles then restart
     if totalmem > 200.0 MB for 5 cycles then restart
@@ -104,10 +118,11 @@ cat <<EOT >/etc/monit/conf.d/postfix.cfg
     if failed host localhost port 25 protocol smtp with timeout 15 seconds then alert
     if failed host localhost port 25 protocol smtp for 3 cycles then restart
     if 3 restarts within 5 cycles then timeout
+	depeneds on  postfix_rc
     group mail
 
   check file postfix_rc with path /etc/init.d/postfix
-    if failed checksum then unmonitor
+    if failed sha1 checksum then unmonitor
     if failed permission 755 then unmonitor
     if failed uid root then unmonitor
     if failed gid root then unmonitor
@@ -119,8 +134,8 @@ EOT
 function monit_def_postgresql {
 cat <<EOT >/etc/monit/conf.d/postgresql.cfg
   check process postgres with pidfile /var/run/postgresql/9.1-main.pid
-    start program = "/etc/init.d/postgresql start"
-    stop program = "/etc/init.d/postgresql stop"
+    start program = "/usr/bin/service postgresql start"
+    stop program = "/usr/bin/service postgresql stop"
     if failed unixsocket /var/run/postgresql/.s.PGSQL.5432 protocol pgsql then restart
     if failed host localhost port 5432 protocol pgsql then restart
     if 5 restarts within 5 cycles then timeout
@@ -129,14 +144,14 @@ cat <<EOT >/etc/monit/conf.d/postgresql.cfg
     group database
 
   check file postgresql_bin with path /usr/lib/postgresql/9.1/bin/postgres
-    if failed checksum then unmonitor
+    if failed sha1 checksum then unmonitor
     if failed permission 755 then unmonitor
     if failed uid root then unmonitor
     if failed gid root then unmonitor
     group database
 
   check file postgresql_rc with path /etc/init.d/postgresql
-    if failed checksum then unmonitor
+    if failed sha1 checksum then unmonitor
     if failed permission 755 then unmonitor
     if failed uid root then unmonitor
     if failed gid root then unmonitor
@@ -151,8 +166,8 @@ EOT
 function monit_def_mysql {
 cat <<EOT > /etc/monit/conf.d/mysql.cfg
   check process mysqld with pidfile /var/run/mysqld/mysqld.pid
-    start program = "/sbin/start mysql" with timeout 20 seconds
-    stop program = "/sbin/stop mysql"
+    start program = "/usr/bin/service mysql" with timeout 20 seconds
+    stop program = "/usr/bin/service mysql"
     if failed host localhost port 3306 protocol mysql then restart
     if failed unixsocket /var/run/mysqld/mysqld.sock protocol mysql then restart
     if 5 restarts within 5 cycles then timeout
@@ -161,14 +176,14 @@ cat <<EOT > /etc/monit/conf.d/mysql.cfg
     group database
 
   check file mysql_bin with path /usr/sbin/mysqld
-    if failed checksum then unmonitor
+    if failed sha1 checksum then unmonitor
     if failed permission 755 then unmonitor
     if failed uid root then unmonitor
     if failed gid root then unmonitor
     group database
 
   check file mysql_rc with path /etc/init.d/mysql
-    if failed checksum then unmonitor
+    if failed sha1 checksum then unmonitor
     if failed permission 755 then unmonitor
     if failed uid root then unmonitor
     if failed gid root then unmonitor
@@ -179,20 +194,28 @@ EOT
 function monit_def_mongodb {
 cat <<EOT >/etc/monit/conf.d/mongodb.cfg
   check process mongodb with pidfile /var/lib/mongodb/mongod.lock
-    start program = "/sbin/start mongodb"
-    stop  program = "/sbin/stop mongodb"
+    start program = "/usr/bin/service mongodb start"
+    stop  program = "/usr/bin/service mongodb stop"
     if failed host localhost port 28017 protocol http
       and request "/" with timeout 10 seconds then restart
     if 5 restarts within 5 cycles then timeout
+	depends on mongodb_rc
     group database
+	
+  check file mongodb_rc with path /etc/init.d/mongodb
+    if failed sha1 checksum then unmonitor
+    if failed permission 755 then unmonitor
+    if failed uid root then unmonitor
+    if failed gid root then unmonitor
+    group database	
 EOT
 }
 
 function monit_def_memcached {
 cat <<EOT >/etc/monit/conf.d/memcached.cfg
   check process memcached with pidfile /var/run/memcached.pid
-    start program = "/etc/init.d/memcached start"
-    stop program = "/etc/init.d/memcached stop"
+    start program = "/usr/bin/service memcached start"
+    stop program = "/usr/bin/service memcached stop"
     if 5 restarts within 5 cycles then timeout
     group database
 EOT
@@ -201,8 +224,8 @@ EOT
 function monit_def_apache {
 cat <<EOT >/etc/monit/conf.d/apache2.cfg
   check process apache with pidfile /var/run/apache2.pid
-    start program = "/etc/init.d/apache2 start"
-    stop  program = "/etc/init.d/apache2 stop"
+    start program = "/usr/bin/service apache2 start"
+    stop  program = "/usr/bin/service apache2 stop"
     if cpu > 60% for 2 cycles then alert
     if cpu > 80% for 5 cycles then alert
     if totalmem > 200.0 MB for 5 cycles then alert
@@ -217,14 +240,14 @@ cat <<EOT >/etc/monit/conf.d/apache2.cfg
     group www
 
   check file apache_bin with path /usr/sbin/apache2
-    if failed checksum then unmonitor
+    if failed sha1 checksum then unmonitor
     if failed permission 755 then unmonitor
     if failed uid root then unmonitor
     if failed gid root then unmonitor
     group www
 
   check file apache_rc with path /etc/init.d/apache2
-    if failed checksum then unmonitor
+    if failed sha1 checksum then unmonitor
     if failed permission 755 then unmonitor
     if failed uid root then unmonitor
     if failed gid root then unmonitor
@@ -234,11 +257,19 @@ EOT
 function monit_def_lighttpd {
 cat <<EOT >/etc/monit/conf.d/lighttpd.conf
 check process lighttpd with pidfile /var/run/lighttpd.pid
-	group www
-	start program = "/etc/init.d/lighttpd start"
-	stop program = "/etc/init.d/lighttpd stop"
+	start program = "/usr/bin/service lighttpd start"
+	stop program = "/usr/bin/service lighttpd stop"
 	if failed host localhost port 80
 	protocol http then restart
 	if 5 restarts within 5 cycles then timeout
+	depends on lighttpd_rc
+	group www
+	
+  check file lighttpd_rc with path /etc/init.d/lighttpd
+    if failed sha1 checksum then unmonitor
+    if failed permission 755 then unmonitor
+    if failed uid root then unmonitor
+    if failed gid root then unmonitor
+    group www	
 EOT
 }

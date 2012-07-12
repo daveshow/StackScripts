@@ -8,6 +8,14 @@
 # Link: https://github.com/daveshow/StackScripts
 #
 #
+function urandomString {
+	if [ ! -n "$1" ];
+		then LEN=20
+		else LEN="$1"
+	fi
+
+	echo $(od -c -A n /dev/urandom | tr -dc [:graph:] | head -c $LEN) # generate a truly random string
+}
 function install_ssh {
 aptitude -y install openssh-server
 }
@@ -27,6 +35,11 @@ mkdir -p /root/archive/source
 dpkg-scansources source /dev/null | gzip -9c > source/Sources.gz
 mkdir -p /root/archive/binary
 dpkg-scanpackages binary /dev/null | gzip -9c > binary/Packages.gz
+}
+function system_locale_en_US_UTF_8 {
+    locale-gen --purge en_US.UTF-8
+    # dpkg-reconfigure locales
+    update-locale LANG=en_US.UTF-8
 }
 function set_timezone {
   # $1 - timezone (zoneinfo file)
@@ -215,4 +228,89 @@ function configure_logcheck {
   echo $DHCPCD_INTERFACE_CONFIGURED >> /etc/logcheck/ignore.d.server/local
   echo "# NTPD messages" >> /etc/logcheck/ignore.d.server/local
   echo $NTPD_VALIDATING_PEER >> /etc/logcheck/ignore.d.server/local
+}
+function system_install_utils {
+    aptitude -y install htop iotop bsd-mailx python-software-properties zsh
+}
+
+function system_install_build {
+    aptitude -y install build-essential gcc
+}
+function system_install_subversion {
+    aptitude -y install subversion
+}
+function system_install_git {
+    aptitude -y install git-core
+}
+function system_install_mercurial {
+    aptitude -y install mercurial
+}
+function system_start_etc_dir_versioning {
+    hg init /etc
+    hg add /etc
+    hg commit -u root -m "Started versioning of /etc directory" /etc
+    chmod -R go-rwx /etc/.hg
+}
+function system_ignore_files {
+cat <<EOT >/etc/.hgignore
+syntax: regexp
+(^)*.dpkg-new
+(^)*.dpkg-old
+(^)blkid.tab(|.old)
+(^)mtab
+# add other files if necessary, depends on your setup...
+EOT
+}
+function system_apt_snapsshot {
+cat <<EOT >/etc/apt/hg-snapshot-script
+#!/bin/sh
+set -e
+
+caller=\$(ps axww | mawk '/aptitude|apt-get/ {for (i=5; i<=NF ; i++) printf ("%s ",\$i); printf ("\\n") }' | head -1)
+
+hg addremove 1>/dev/null
+STATUS="\$(hg st)"
+
+if [ -z "\$STATUS" ] ; then
+   echo "hg-snapshot-script: nothing to be done"
+else
+   case "\$1" in
+        pre)
+           echo "hg-snapshot-script: found changed files:"
+           hg status /etc
+           hg commit -u root -m "snapshot from \$LOGNAME before: \$caller" /etc
+          ;;
+        post)
+           echo "hg-snapshot-script: found changed files:"
+           hg status /etc
+           hg commit -u root -m "snapshot from \$LOGNAME after: \$caller" /etc
+          ;;
+        *)
+           echo "hg-snapshot-script: found changed files:"
+           hg status /etc
+           hg commit -u root -m "snapshot from \$LOGNAME on \$(date '+%Y-%m-%d - %H:%M:%S')" /etc
+          ;;
+   esac
+fi
+EOT
+chmod +x /etc/apt/hg-snapshot-script
+cat <<EOT >/etc/apt/apt.conf.d/25hg-snapshot
+DPkg {
+  Pre-Invoke  {"cd /etc ; ./apt/hg-snapshot-script pre";};
+  Post-Invoke {"cd /etc ; ./apt/hg-snapshot-script post";};
+}
+EOT
+}
+function system_record_etc_dir_changes {
+    if [ ! -n "$1" ];
+        then MESSAGE="Committed /etc changes"
+        else MESSAGE="$1"
+    fi
+    hg addremove /etc 1>/dev/null
+	STATUS="$(hg status /etc)"
+	if [ -z "$STATUS" ] ; then
+	echo "hg-snapshot-script: nothing to be done"
+	else
+    hg commit -u root -m "$MESSAGE" /etc || echo > /dev/null # catch "nothing changed" return code
+	fi
 }

@@ -16,32 +16,45 @@
 # <udf name="sshd_group" label="SSH Allowed Groups" default="sshusers" example="List of groups seperated by spaces" />
 # <UDF name="user_shell" label="Shell" oneof="/bin/zsh,/bin/bash" default="/bin/bash" />
 # <UDF name="sys_hostname" label="System hostname" default="myvps" example="Name of your server, i.e. linode1." />
-# <UDF name="sys_private_ip" Label="Private IP" default="" example="Configure network card to listen on this Private IP (if enabled in Linode/Remote Access settings tab). See http://library.linode.com/networking/configuring-static-ip-interfaces" />
+# <UDF name="setup_mysql" label="Configure MySQL and create database?" oneof="Yes,No" default="No" />
+# <UDF name="mysql_database_password" label="MySQL root Password" default="" />
+# <UDF name="mysql_database" label="MySQL database name" example="MySQL database name, ASCII only." default="" />
+# <UDF name="mysql_user" label="MySQL database user" example="MySQL database user name, ASCII only." default="" />
+# <UDF name="mysql_password" label="MySQL user password" default="" />
 # <UDF name="setup_monit" label="Install Monit system monitoring?" oneof="Yes,No" default="Yes" />
 # <UDF name="setup_mongodb" label="Install mongodb ?" oneof="Yes,No" default="No" />
 # <UDF name="setup_apache" label="Install apache ?" oneof="Yes,No" default="No" />
 # <UDF name="setup_lighttpd" label="Install lighttpd ?" oneof="Yes,No" default="No" />
-
+#
+#
 set -e
 set -u
 #
 USER_GROUPS=sudo
-groupadd "$SSHD_GROUP"
+groupadd -r "$SSHD_GROUP"
 #
 exec &> /root/stackscript.log
 #
 source <ssinclude StackScriptID="1"> # StackScript Bash Library
-source <ssinclude StackScriptID="124"> # lib-system
 source <ssinclude StackScriptID="123"> # lib-system-ubuntu
 source <ssinclude StackScriptID="132"> # extras
 source <ssinclude StackScriptID="126"> # lib-python
-system_update_locale_en_US_UTF_8
+#
+if [ -z $USER_PASSWORD ]; then USER_PASSWORD=$(urandomString); USER_PASSWORD_BLANK="1"; fi
+if [ -z $MYSQL_DATABASE_PASSWORD ]; then MYSQL_DATABASE_PASSWORD=$(urandomString); MYSQL_DATABASE_PASSWORD_BLANK="1"; fi
+if [ -z $MYSQL_PASSWORD ]; then MYSQL_PASSWORD=$(urandomString); MYSQL_PASSWORD_BLANK="1"; fi
+#
+system_locale_en_US_UTF_8
 set_timezone "America/New_York"
 system_update
 create_sys_backup
 #
 system_install_mercurial
 system_start_etc_dir_versioning #start recording changes of /etc config files
+#
+system_ignore_files
+system_apt_snapsshot
+system_record_etc_dir_changes "adding in apt snapshot for backuping up before installing apt deb files"
 #
 # Configure system
 system_update_hostname "$SYS_HOSTNAME"
@@ -52,7 +65,6 @@ install_ssh
 system_record_etc_dir_changes "installing openssh if not installed" # SS124
 fi
 # Create user account
-
 system_add_user "$USER_NAME" "$USER_PASSWORD" "$USER_GROUPS,$SSHD_GROUP" "$USER_SHELL"
 if [ "$USER_SSHKEY" ]; then
     system_user_add_ssh_key "$USER_NAME" "$USER_SSHKEY"
@@ -83,8 +95,8 @@ if [ "$SETUP_APACHE" == "Yes" ]; then
 apache_install
 system_record_etc_dir_changes "Installed apache"
 #
-apache_tune 25
-system_record_etc_dir_changes "apache tune 25% of sys mem "
+apache_tune 15
+system_record_etc_dir_changes "apache tune 15% of sys mem "
 #
 if [ -z $(get_rdns_primary_ip) ]; then
 apache_virtualhost "$SYS_HOSTNAME"
@@ -94,6 +106,8 @@ apache_virtualhost_from_rdns
 system_record_etc_dir_changes "create virtual from rdns "
 fi
 #
+php_install_with_apache
+system_record_etc_dir_changes "Installing PHP for apache"
 fi
 goodstuff
 config_screen
@@ -139,6 +153,15 @@ system_record_etc_dir_changes "Configured UFW" # SS124
 #
 python_install
 system_record_etc_dir_changes "Installed python" # SS124
+if [ "$SETUP_MYSQL" == "Yes" ]; then
+    set +u # ignore undefined variables in Linode's SS1
+    mysql_install "$MYSQL_DATABASE_PASSWORD" && mysql_tune 20
+    mysql_create_database "$MYSQL_DATABASE_PASSWORD" "$MYSQL_DATABASE"
+    mysql_create_user "$MYSQL_DATABASE_PASSWORD" "$MYSQL_USER" "$MYSQL_PASSWORD"
+    mysql_grant_user "$MYSQL_DATABASE_PASSWORD" "$MYSQL_USER" "$MYSQL_DATABASE"
+    set -u
+    system_record_etc_dir_changes "Configured MySQL"
+fi
 # Install MongoDB
 if [ "$SETUP_MONGODB" == "Yes" ]; then
     source <ssinclude StackScriptID="128"> # lib-mongodb
@@ -170,8 +193,10 @@ if [ "$SETUP_MONIT" == "Yes" ]; then
     monit_def_cron
     monit_def_postfix
     monit_def_ping_google
+	monit_def_sshd
     if [ "$SETUP_MONGODB" == "Yes" ]; then monit_def_mongodb; fi
     if [ "$SETUP_APACHE" == "Yes" ]; then monit_def_apache; fi
+    if [ "$SETUP_MYSQL" == "Yes" ]; then monit_def_mysql; fi
 	if [ "$SETUP_LIGHTTPD" == "Yes" ]; then monit_def_lighttpd; fi
     system_record_etc_dir_changes "Created Monit rules for installed services"
     monit reload
@@ -193,6 +218,21 @@ EOD
 fi
 cat >> ~/setup_message <<EOD
 To access your server ssh to $USER_NAME@$SYS_HOSTNAME
-EOD
 
+EOD
+if [ "$USER_PASSWORD_BLANK" == "1" ]; then
+cat >> ~/setup_message <<EOD
+The user $USER_NAME password was not set so here your random password $USER_PASSWORD
+
+EOD
+if [ "$MYSQL_DATABASE_PASSWORD_BLANK" == "1" ]; then
+cat >> ~/setup_message <<EOD
+The Mysql password was not set so here your random admin password $MYSQL_DATABASE_PASSWORD
+
+EOD
+if [ "$MYSQL_PASSWORD_BLANK" == "1" ]; then
+cat >> ~/setup_message <<EOD
+The Mysql user password was not set so here your random password $MYSQL_PASSWORD
+
+EOD
 mail -s "Your Server is ready" "$NOTIFY_EMAIL" < ~/setup_message
